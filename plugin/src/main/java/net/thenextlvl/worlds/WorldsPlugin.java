@@ -1,8 +1,8 @@
 package net.thenextlvl.worlds;
 
-import dev.faststats.bukkit.BukkitMetrics;
-import dev.faststats.core.ErrorTracker;
-import dev.faststats.core.data.Metric;
+import dev.faststats.ErrorTracker;
+import dev.faststats.bukkit.BukkitContext;
+import dev.faststats.data.Metric;
 import io.papermc.paper.ServerBuildInfo;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.key.Key;
@@ -27,7 +27,6 @@ import net.thenextlvl.worlds.model.MessageMigrator;
 import net.thenextlvl.worlds.version.PluginVersionChecker;
 import net.thenextlvl.worlds.versions.PluginAccess;
 import net.thenextlvl.worlds.versions.VersionHandler;
-import net.thenextlvl.worlds.versions.v26_1_2.SimpleVersionHandler;
 import net.thenextlvl.worlds.view.FoliaLevelView;
 import net.thenextlvl.worlds.view.PaperLevelView;
 import org.bstats.bukkit.Metrics;
@@ -88,13 +87,14 @@ public final class WorldsPlugin extends JavaPlugin implements PluginAccess, Worl
             .build();
 
     private final PluginVersionChecker versionChecker = new PluginVersionChecker(this);
-    private final BukkitMetrics fastStats = BukkitMetrics.factory()
-            .token("978c4aa9ecf78ae2e9c0776601fd4c6c")
-            .errorTracker(ERROR_TRACKER)
-            .addMetric(addGeneratorChart())
-            .addMetric(addWorldsChart())
-            .addMetric(addDimensionsChart())
-            .create(this);
+    private final BukkitContext context = new BukkitContext.Factory(this, "978c4aa9ecf78ae2e9c0776601fd4c6c")
+            .errorTrackerService(ERROR_TRACKER)
+            .metrics(factory -> factory
+                    .addMetric(addGeneratorChart())
+                    .addMetric(addWorldsChart())
+                    .addMetric(addDimensionsChart())
+                    .create())
+            .create();
 
     private final Metrics metrics = new Metrics(this, 19652);
 
@@ -107,7 +107,9 @@ public final class WorldsPlugin extends JavaPlugin implements PluginAccess, Worl
     private VersionHandler selectImplementation() {
         final var s = ServerBuildInfo.buildInfo().minecraftVersionId();
         if (s.contains("26.1.2")) {
-            return new SimpleVersionHandler(this);
+            return new net.thenextlvl.worlds.versions.v26_1_2.SimpleVersionHandler(this);
+        } else if (s.equals("26.2")) {
+            return new net.thenextlvl.worlds.versions.v26_2.SimpleVersionHandler(this);
         }
         throw new IllegalStateException("No implementation found for version: " + s + ", check for an update.");
     }
@@ -120,11 +122,17 @@ public final class WorldsPlugin extends JavaPlugin implements PluginAccess, Worl
 
     @Override
     public void onEnable() {
-        fastStats.ready();
+        context.ready();
         worldRegistry.read();
         worldOperationScheduler.load();
         worldOperationScheduler.runScheduledOperations();
         registerListeners();
+    }
+
+    @Override
+    public void onDisable() {
+        context.shutdown();
+        metrics.shutdown();
     }
 
     public Path presetsFolder() {
