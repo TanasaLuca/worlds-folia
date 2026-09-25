@@ -16,12 +16,13 @@ dependencies {
     implementation(project(":version-specifics"))
     implementation(project(":version-specifics:v26.1.2"))
     implementation(project(":version-specifics:v26.2"))
+    implementation(project(":version-specifics:v26.3"))
 
     implementation("net.thenextlvl.version-checker:modrinth-paper:1.0.1")
     implementation("net.thenextlvl:i18n:1.2.0")
     implementation("net.thenextlvl:nbt:4.3.6")
 
-    implementation("dev.faststats.metrics:bukkit:0.29.4")
+    implementation("dev.faststats.metrics:bukkit:0.30.1")
     implementation("org.bstats:bstats-bukkit:3.2.1")
 }
 
