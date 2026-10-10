@@ -1,0 +1,19 @@
+name: Release
+on:
+  push:
+    branches: [main]
+    paths: [release/worlds.jar]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish worlds.jar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="update-${GITHUB_SHA::12}"
+          gh release create "$TAG" release/worlds.jar --target "$GITHUB_SHA" --title "Worlds update" --generate-notes

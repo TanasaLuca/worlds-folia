@@ -90,7 +90,7 @@ import java.util.stream.Stream;
 
 public final class SimpleVersionHandler extends VersionHandler {
     public SimpleVersionHandler(final PluginAccess plugin) {
-        super(plugin, null, false);
+        super(plugin, plugin.isRunningFolia() ? new SimpleFoliaSupport(plugin) : null, true);
     }
 
     @Override
@@ -122,10 +122,30 @@ public final class SimpleVersionHandler extends VersionHandler {
      */
     @Override
     public CompletableFuture<@Nullable Void> saveLevelDataAsync(final World world) {
-        final var level = ((CraftWorld) world).getHandle();
-        final SavedDataStorage savedDataStorage = level.getChunkSource().getDataStorage();
-        savedDataStorage.computeIfAbsent(PaperWorldPDC.TYPE).setFrom((CraftPersistentDataContainer) world.getPersistentDataContainer());
-        return savedDataStorage.scheduleSave().thenApply(ignored -> null);
+        final var result = new CompletableFuture<@Nullable Void>();
+        final Runnable save = () -> {
+            try {
+                final var level = ((CraftWorld) world).getHandle();
+                final SavedDataStorage savedDataStorage = level.getChunkSource().getDataStorage();
+                savedDataStorage.computeIfAbsent(PaperWorldPDC.TYPE).setFrom((CraftPersistentDataContainer) world.getPersistentDataContainer());
+                savedDataStorage.scheduleSave().whenComplete((ignored, error) -> {
+                    if (error != null) result.completeExceptionally(error);
+                    else result.complete(null);
+                });
+            } catch (final Throwable error) {
+                result.completeExceptionally(error);
+            }
+        };
+        try {
+            if (plugin.isRunningFolia()) {
+                plugin.getServer().getGlobalRegionScheduler().execute(plugin, save);
+            } else {
+                save.run();
+            }
+        } catch (final Throwable error) {
+            result.completeExceptionally(error);
+        }
+        return result;
     }
 
     @Override
@@ -546,3 +566,5 @@ public final class SimpleVersionHandler extends VersionHandler {
         return Identifier.parse(key.asString());
     }
 }
+
+
